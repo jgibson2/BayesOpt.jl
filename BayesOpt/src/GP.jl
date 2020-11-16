@@ -1,35 +1,6 @@
-__precompile__()
-module GP
-
 using LinearAlgebra, SpecialFunctions;
 
-export
-	ZeroMean,
-	ConstantMean,
-	FunctionMean,
-	Kernel,
-	SquaredExponential,
-	RationalQuadratic,
-	Matern,
-	Matern12,
-	Matern32,
-	Matern52,
-	SpectralMixure,
-	Mean,
-	Cov,
-	Std,
-	GaussianProcess,
-	ConditionGP,
-	LogMarginalLikelihood,
-	Acquire,
-	ExpectedImprovement,
-	KnowledgeGradientCP,
-	ProbabilityOfImprovement,
-	UpperConfidenceBound,
-	MutualInformationMES;
-
 include("Kernels.jl");
-include("AcquisitionFunctions.jl")
 
 function Std(gp, X)
 	sqrt.([ K(gp.kernel,x,x) for x=eachcol(X) ])
@@ -99,5 +70,3 @@ struct GaussianProcess
 	GaussianProcess(kernel, sigma) = new(ZeroMean(), kernel, sigma)
 end
 
-
-end

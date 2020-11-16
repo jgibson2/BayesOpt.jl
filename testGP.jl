@@ -1,6 +1,7 @@
-using Random, Plots, Distributions, LinearAlgebra, QuadGK, LaTeXStrings;
-include("./GPs/GP.jl");
-gp = GP.GaussianProcess(GP.ZeroMean(), GP.SquaredExponential(l=1.5), 0.01);
+using Pkg, Random, Plots, Distributions, LinearAlgebra, QuadGK, LaTeXStrings;
+Pkg.develop(path="./BayesOpt");
+using BayesOpt;
+gp = GaussianProcess(ZeroMean(), SquaredExponential(l=1.5), 0.01);
 
 n = 250;
 x = reshape(LinRange(0, 50, n), 1, :);
@@ -14,19 +15,19 @@ ty = f(tx)
 ydist = MvNormal(ty, 0.1^2 * I);
 ty = vec(rand(ydist))
 
-gp2 = GP.ConditionGP(gp, tx, ty);
+gp2 = ConditionGP(gp, tx, ty);
 
-dist = MvNormal(GP.Mean(gp, x), GP.Cov(gp, x) + gp.sigma * I);
-dist2 = MvNormal(GP.Mean(gp2, x), GP.Cov(gp2, x) + gp2.sigma * I);
+dist = MvNormal(Mean(gp, x), Cov(gp, x) + gp.sigma * I);
+dist2 = MvNormal(Mean(gp2, x), Cov(gp2, x) + gp2.sigma * I);
 
-std = GP.Std(gp, x);
-std2 = GP.Std(gp2, x);
+std = Std(gp, x);
+std2 = Std(gp2, x);
 
 # p = plot();
 p2 = plot();
 p3 = plot(title="Normalized Acquisition Functions");
-# plot!(p, vec(x), GP.Mean(gp, x), ribbon=((1.96 * std),(1.96 * std)), linewidth=2, label=L"\mu");
-plot!(p2, vec(x), GP.Mean(gp2, x), ribbon=((1.96 * std2),(1.96 * std2)), linewidth=2, label=L"\mu");
+# plot!(p, vec(x), Mean(gp, x), ribbon=((1.96 * std),(1.96 * std)), linewidth=2, label=L"\mu");
+plot!(p2, vec(x), Mean(gp2, x), ribbon=((1.96 * std2),(1.96 * std2)), linewidth=2, label=L"\mu");
 for i = 1:10
 	# plot!(p, vec(x), vec(rand(dist)), linealpha=0.1, label="");
 	plot!(p2, vec(x), vec(rand(dist2)), linealpha=0.1, label="");
@@ -34,12 +35,12 @@ end
 scatter!(p2, vec(tx), ty, label="Observations");
 plot!(p2, vec(x), f(x), label=L"f(x)", linecolor=:red);
 
-acEI   = GP.ExpectedImprovement()
-acKG   = GP.KnowledgeGradientCP()
-acUCB  = GP.UpperConfidenceBound(beta=4.0)
-acPI   = GP.ProbabilityOfImprovement(tau=0.1)
-acMES  = GP.MutualInformationMES(gp2, [0.0], [50.0])
-acOPES = GP.MutualInformationOPES(gp2, [0.0], [50.0])
+acEI   = ExpectedImprovement()
+acKG   = KnowledgeGradientCP()
+acUCB  = UpperConfidenceBound(beta=4.0)
+acPI   = ProbabilityOfImprovement(tau=0.1)
+acMES  = MutualInformationMES(gp2, [0.0], [50.0])
+acOPES = MutualInformationOPES(gp2, [0.0], [50.0])
 
 acfns = [
 	 ("EI", acEI),
@@ -52,7 +53,7 @@ acfns = [
 
 i = size(acfns, 1)
 for (lab,fn) in acfns
-	local ac = GP.Acquire(fn, gp2, x, tx, ty)
+	local ac = Acquire(fn, gp2, x, tx, ty)
 	ac = vec((1 / (size(acfns, 1) + 1)) * (ac .- minimum(ac)) ./ (maximum(ac) - minimum(ac)))
 	hline!(p3, [(i / size(acfns, 1))], linestyle = :dot, linewidth=0.25, color=:black, label="");
 	plot!(p3, vec(x), ac .+ (i  / size(acfns, 1)), ribbon=(ac, fill(0, size(ac))), label=lab, grid=false, yticks=false);
@@ -61,5 +62,5 @@ end
 
 l = @layout [a b]
 display(plot(p2, p3, layout=l, size=(1600,900)))
-# println("log marginal likelihood: $(GP.LogMarginalLikelihood(gp2, tx, ty))")
+# println("log marginal likelihood: $(LogMarginalLikelihood(gp2, tx, ty))")
 # savefig("acquisitionFns.png")

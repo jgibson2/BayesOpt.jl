@@ -1,13 +1,13 @@
 using LinearAlgebra, SpecialFunctions, Distributions, QuadGK, Optim, Sobol, Roots;
 
 struct ExpectedImprovement
-	eta
-	ExpectedImprovement(;eta=0.0) = new(eta)
+	xi
+	ExpectedImprovement(;xi=0.0) = new(xi)
 end
 
 struct KnowledgeGradientCP
-	eta
-	KnowledgeGradientCP(;eta=0.0) = new(eta)
+	xi
+	KnowledgeGradientCP(;xi=0.0) = new(xi)
 end
 
 struct UpperConfidenceBound
@@ -58,7 +58,7 @@ function Acquire(fn::ExpectedImprovement, gp, X, tX, tY)
 	bestPhi = Mean(gp, bestX)
 	us = Mean(gp, X)
 	sigmas = Std(gp, X)
-	r = us .- (bestPhi .+ fn.eta)
+	r = us .- (bestPhi .+ fn.xi)
 	Z = r ./ (sigmas .+ 1e-8)
 	(r .* cdf(Normal(), Z)) .+ (sigmas .* pdf(Normal(), Z))
 end
@@ -71,7 +71,7 @@ function Acquire(fn::KnowledgeGradientCP, gp, X, tX, tY)
 	us = Mean(gp, X)
 	us_tX = Mean(gp, tX)
 	sigmas = Std(gp, X)
-	r = us .- (bestPhi .+ fn.eta)
+	r = us .- (bestPhi .+ fn.xi)
 	Z = r ./ (sigmas .+ 1e-8)
 	ei = (r .* cdf(Normal(), Z)) .+ (sigmas .* pdf(Normal(), Z))
 	ei .- max.(us .- maximum(us_tX), 0)
