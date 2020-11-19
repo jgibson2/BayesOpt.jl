@@ -85,7 +85,10 @@ end
 
 function Acquire(fn::ProbabilityOfImprovement, gp, X, tX, tY)
 	bestY, bestYIdx = findmax(tY)
-	tau = (1 + fn.tau) .* bestY
+	bestX = reshape(tX[:, bestYIdx], (size(tX)[1], 1))
+	r = maximum(tY) - minimum(tY)
+	mu = Mean(gp, bestX)
+	tau = (fn.tau * r) .+ mu
 	cdf(Normal(), (Mean(gp, X) .- tau) ./ Std(gp, X))
 end
 

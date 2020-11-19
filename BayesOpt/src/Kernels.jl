@@ -27,19 +27,19 @@ end
 struct Matern12
 	l
 	s
-	Matern(;l=1.0, s=1.0) = new(l, s)
+	Matern12(;l=1.0, s=1.0) = new(l, s)
 end
 
 struct Matern32
 	l
 	s
-	Matern(;l=1.0, s=1.0) = new(l, s)
+	Matern32(;l=1.0, s=1.0) = new(l, s)
 end
 
 struct Matern52
 	l
 	s
-	Matern(;l=1.0, s=1.0) = new(l, s)
+	Matern52(;l=1.0, s=1.0) = new(l, s)
 end
 
 struct SpectralMixture
