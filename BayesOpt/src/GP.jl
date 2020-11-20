@@ -1,4 +1,5 @@
 using LinearAlgebra, SpecialFunctions;
+include("Kernels.jl");
 
 function Std(gp, X)
 	sqrt.([ K(gp.kernel,x,x) for x=eachcol(X) ])
