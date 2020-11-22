@@ -37,8 +37,7 @@ ty = [-1.16739385336939,
 
 gp2 = ConditionGP(gp, tx, ty);
 
-dist = MvNormal(Mean(gp, x), Cov(gp, x) + gp.sigma * I);
-dist2 = MvNormal(Mean(gp2, x), Cov(gp2, x) + gp2.sigma * I);
+dist2 = MvNormal(Mean(gp2, x), Cov(gp2, x));
 
 std = Std(gp, x);
 std2 = Std(gp2, x);
@@ -47,7 +46,7 @@ p2 = plot();
 p3 = plot(title="Normalized Acquisition Functions");
 plot!(p2, vec(x), Mean(gp2, x), ribbon=((1.96 * std2),(1.96 * std2)), linewidth=2, label=L"\mu");
 for i = 1:10
-	plot!(p2, vec(x), vec(rand(dist2)), linealpha=0.1, label="");
+	plot!(p2, vec(x), vec(rand(dist2)), linealpha=0.25, label="");
 end
 scatter!(p2, vec(tx), ty, label="Observations");
 
@@ -68,6 +67,11 @@ pointsMI = ProposeNextPoint(dataMI; restarts=1, batchSize=batchSize)
 dataCV = OptimizationData(ZeroMean(), Matern52(), 1.0, acMIBatchEI, [0.0], [30.0], tx, ty) 
 pointsCV = ProposeNextPoint(dataCV; restarts=1, batchSize=batchSize)
 
+sampler = ATSSampler(ZeroMean(), Matern52(), 1.0; bounds_length_scale=(0.5, 2.5))
+sampled_xs, sampled_ys = SampleOptima(sampler, gp2, x);
+
+scatter!(p2, vec(sampled_xs), sampled_ys, label="Sampled Optima", markershape = :x, markersize = 3, color = :black);
+
 acfns = [
 	 ("EI", acEI),
 	 ("KGCP", acKG),
@@ -79,7 +83,7 @@ acfns = [
 
 i = size(acfns, 1)
 for (lab,fn) in acfns
-	local ac = Acquire(fn, gp2, x, tx, ty)
+	local ac = AcquireScore(fn, gp2, x, tx, ty)
 	ac = vec((1 / (size(acfns, 1) + 1)) * (ac .- minimum(ac)) ./ (maximum(ac) - minimum(ac)))
 	hline!(p3, [(i / size(acfns, 1))], linestyle = :dot, linewidth=0.25, color=:black, label="");
 	plot!(p3, vec(x), ac .+ (i  / size(acfns, 1)), ribbon=(ac, fill(0, size(ac))), label=lab, grid=false, yticks=false);

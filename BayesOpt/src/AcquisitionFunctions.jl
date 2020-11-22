@@ -52,7 +52,7 @@ struct MutualInformationOPES
 	end
 end
 
-function Acquire(fn::ExpectedImprovement, gp, X, tX, tY)
+function AcquireScore(fn::ExpectedImprovement, gp, X, tX, tY)
 	bestY, bestYIdx = findmax(tY)
 	bestX = reshape(tX[:, bestYIdx], (size(tX)[1], 1))
 	bestPhi = Mean(gp, bestX)
@@ -64,7 +64,7 @@ function Acquire(fn::ExpectedImprovement, gp, X, tX, tY)
 end
 
 
-function Acquire(fn::KnowledgeGradientCP, gp, X, tX, tY)
+function AcquireScore(fn::KnowledgeGradientCP, gp, X, tX, tY)
 	bestY, bestYIdx = findmax(tY)
 	bestX = reshape(tX[:, bestYIdx], (size(tX)[1], 1))
 	bestPhi = Mean(gp, bestX)
@@ -78,12 +78,12 @@ function Acquire(fn::KnowledgeGradientCP, gp, X, tX, tY)
 end
 
 
-function Acquire(fn::UpperConfidenceBound, gp, X, tX, tY)
+function AcquireScore(fn::UpperConfidenceBound, gp, X, tX, tY)
 	Mean(gp, X) + (sqrt(fn.beta) .* Std(gp, X))
 end
 
 
-function Acquire(fn::ProbabilityOfImprovement, gp, X, tX, tY)
+function AcquireScore(fn::ProbabilityOfImprovement, gp, X, tX, tY)
 	bestY, bestYIdx = findmax(tY)
 	bestX = reshape(tX[:, bestYIdx], (size(tX)[1], 1))
 	r = maximum(tY) - minimum(tY)
@@ -93,7 +93,7 @@ function Acquire(fn::ProbabilityOfImprovement, gp, X, tX, tY)
 end
 
 
-function Acquire(fn::MutualInformationMES, gp, X, tX, tY)
+function AcquireScore(fn::MutualInformationMES, gp, X, tX, tY)
 	mus_X = Mean(gp, X)
 	sigmas_X = Std(gp, X)
 	n = Normal()
@@ -103,7 +103,7 @@ function Acquire(fn::MutualInformationMES, gp, X, tX, tY)
 end
 
 
-function Acquire(fn::MutualInformationOPES, gp, X, tX, tY)
+function AcquireScore(fn::MutualInformationOPES, gp, X, tX, tY)
 	mus_X = Mean(gp, X)
 	sigmas_X = Std(gp, X)
 	n = Normal()
@@ -115,3 +115,5 @@ function Acquire(fn::MutualInformationOPES, gp, X, tX, tY)
 	U = log.(sqrt.(sigmas_X.^2 .+ gp.sigma^2))
 	U - (1.0 / size(fn.fstar_samples, 1) .* T)
 end
+
+

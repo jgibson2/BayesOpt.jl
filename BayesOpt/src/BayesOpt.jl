@@ -20,7 +20,7 @@ export
 	GaussianProcess,
 	ConditionGP,
 	LogMarginalLikelihood,
-	Acquire,
+	AcquireScore,
 	ExpectedImprovement,
 	KnowledgeGradientCP,
 	ProbabilityOfImprovement,
@@ -29,6 +29,9 @@ export
 	MutualInformationOPES,
 	MutualInformationPenalizedBatch,
 	CovariancePenalizedBatch,
+	ThompsonSampler,
+	ATSSampler,
+	SampleOptima,
 	OptimizationData,
 	ProposeNextPoint,
 	ProposeAndEvaluateNextPoint!;
@@ -71,7 +74,7 @@ function ProposeNextPoint(p::OptimizationData; restarts=20, batchSize=1)
 	if p.tX != nothing && p.tY != nothing
 		gp = ConditionGP(GaussianProcess(p.mean, p.kernel, p.sigma), p.tX, p.tY)
 		best_f = Inf;
-		f = x -> -1 * sum(Acquire(p.acquisitionFunction, gp, reshape(x, (size(x, 1), batchSize)), p.tX, p.tY))
+		f = x -> -1 * sum(AcquireScore(p.acquisitionFunction, gp, reshape(x, (size(x, 1), batchSize)), p.tX, p.tY))
 		for iter in 1:restarts
 			initial_x = rand(dist, batchSize)
 			result = optimize(
