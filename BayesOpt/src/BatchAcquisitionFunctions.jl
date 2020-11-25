@@ -12,6 +12,10 @@ struct CovariancePenalizedBatch
 	CovariancePenalizedBatch(ac; l=1.0) = new(ac, l)
 end
 
+struct LocalPenalizedBatch
+	acquisitionFunction
+end
+
 struct ThompsonSampler end
 
 struct ATSSampler
@@ -45,7 +49,22 @@ function AcquireScore(fn::CovariancePenalizedBatch, gp, X, tX, tY)
 	α = vec(mapslices(x -> AcquireScore(fn.acquisitionFunction, gp, reshape(x, (size(x, 1), 1)), tX, tY), X; dims=1))
 	C = Cov(gp, X)
 	C[diagind(C)] .= 0 # disregard diagonal, which will be 1
-	[sum(α) - sum((fn.λ / size(x, 2)) * sum(C; dims=1))]
+	[sum(α) - sum((fn.λ / size(X, 2)) * sum(C; dims=1))]
+end
+
+
+# Evaluates one score for  _all_ X in batch
+function AcquireScore(fn::LocalPenalizedBatch, gp, X, tX, tY)
+	μ∇ = (Mean(gp, X .+ 0.001) - Mean(gp, X .- 0.001)) ./ 0.002
+	L = maximum(mapslices(norm, μ∇; dims=1))
+	α = vec(mapslices(x -> AcquireScore(fn.acquisitionFunction, gp, reshape(x, (size(x, 1), 1)), tX, tY), X; dims=1))
+	function rho(x1, x2, L)
+		z = 1.0 / sqrt(2 * Cov(gp, reshape(x2, (size(x2, 1), 1)))[1,1]) * (L * norm(x1 .- x2) - maximum(tY) + Mean(gp, reshape(x2, (size(x2, 1), 1)))[1])
+		0.5 * erfc(-z)
+	end
+	ρ = [rho(x1, x2, L) for x1=eachcol(X), x2=eachcol(X)]
+	ρ[diagind(ρ)] .= 1.0 # disregard diagonal, since we shouldn't penalize ourselves
+	sum(prod(ρ; dims=2) .* α)
 end
 
 

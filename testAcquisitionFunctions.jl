@@ -58,19 +58,26 @@ acMES  = MutualInformationMES(gp2, [0.0], [30.0])
 acOPES = MutualInformationOPES(gp2, [0.0], [30.0])
 acMIBatchEI = MutualInformationPenalizedBatch(acEI)
 acCVBatchEI = CovariancePenalizedBatch(acEI)
+acLocalBatchEI = LocalPenalizedBatch(acEI)
 
 batchSize = 5
 
 dataMI = OptimizationData(ZeroMean(), Matern52(), 1.0, acMIBatchEI, [0.0], [30.0], tx, ty) 
-pointsMI = ProposeNextPoint(dataMI; restarts=1, batchSize=batchSize)
+pointsMI = ProposeNextPoint(dataMI; restarts=5, batchSize=batchSize)
 
 dataCV = OptimizationData(ZeroMean(), Matern52(), 1.0, acMIBatchEI, [0.0], [30.0], tx, ty) 
-pointsCV = ProposeNextPoint(dataCV; restarts=1, batchSize=batchSize)
+pointsCV = ProposeNextPoint(dataCV; restarts=5, batchSize=batchSize)
 
-sampler = ATSSampler(ZeroMean(), Matern52(), 1.0; bounds_length_scale=(0.5, 2.5))
-sampled_xs, sampled_ys = SampleOptima(sampler, gp2, x);
+dataL = OptimizationData(ZeroMean(), Matern52(), 1.0, acLocalBatchEI, [0.0], [30.0], tx, ty) 
+pointsL = ProposeNextPoint(dataL; restarts=5, batchSize=batchSize)
 
-scatter!(p2, vec(sampled_xs), sampled_ys, label="Sampled Optima", markershape = :x, markersize = 3, color = :black);
+samplerATS = ATSSampler(ZeroMean(), Matern52(), 1.0; bounds_length_scale=(0.5, 2.5))
+sampledATS_xs, sampledATS_ys = SampleOptima(samplerATS, gp2, x; num_samples=20);
+scatter!(p2, vec(sampledATS_xs), sampledATS_ys, label="ATS Sampled Optima", markershape = :x, markersize = 3, color = :green);
+
+samplerTS = ThompsonSampler()
+sampledTS_xs, sampledTS_ys = SampleOptima(samplerTS, gp2, x; num_samples=20);
+scatter!(p2, vec(sampledTS_xs), sampledTS_ys, label="TS Sampled Optima", markershape = :+, markersize = 3, color = :red);
 
 acfns = [
 	 ("EI", acEI),
@@ -89,12 +96,13 @@ for (lab,fn) in acfns
 	plot!(p3, vec(x), ac .+ (i  / size(acfns, 1)), ribbon=(ac, fill(0, size(ac))), label=lab, grid=false, yticks=false);
 	global i -= 1
 end
-vline!(p3, vec(pointsMI), linestyle = :dot, linewidth=0.5, color=:blue, label="MI EI Batch Observations");
-vline!(p3, vec(pointsCV), linestyle = :dot, linewidth=0.5, color=:red, label="MI CV Batch Observations");
+vline!(p3, vec(pointsMI), linestyle = :dash, linewidth=0.75, color=:blue, label="MI EI Batch Locations");
+vline!(p3, vec(pointsCV), linestyle = :dash, linewidth=0.75, color=:red, label="CV EI Batch Locations");
+vline!(p3, vec(pointsL), linestyle = :dash, linewidth=0.75, color=:green, label="Local EI Batch Locations");
 
 l = @layout [a b]
 display(plot(p2, p3, layout=l, size=(1600,900)))
 # println("log marginal likelihood: $(LogMarginalLikelihood(gp2, tx, ty))")
-# savefig("bookAcquisitionFns.png")
+savefig("acquisitionFns.png")
 
 end #module

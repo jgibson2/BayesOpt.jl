@@ -29,6 +29,7 @@ export
 	MutualInformationOPES,
 	MutualInformationPenalizedBatch,
 	CovariancePenalizedBatch,
+	LocalPenalizedBatch,
 	ThompsonSampler,
 	ATSSampler,
 	SampleOptima,
@@ -58,7 +59,8 @@ mutable struct OptimizationData
 		MutualInformationMES,
 		MutualInformationOPES,
 		MutualInformationPenalizedBatch,
-		CovariancePenalizedBatch}
+		CovariancePenalizedBatch,
+		LocalPenalizedBatch}
 	lbounds::AbstractVector{Float32}
 	ubounds::AbstractVector{Float32}
 	tX::Union{AbstractArray{Float32, 2}, Nothing}
@@ -100,8 +102,8 @@ end
 function ProposeAndEvaluateNextPoint!(p::OptimizationData, f; restarts=20, batchSize=1)
 	point = ProposeNextPoint(p; restarts=restarts, batchSize=batchSize)
 	y = f(point)
-	p.tX = p.tY == nothing ? point : hcat(p.tX, point)
-	p.tY = p.tY == nothing ? [y] : vcat(p.tY, [y])
+	p.tX = p.tX == nothing ? point : hcat(p.tX, point)
+	p.tY = p.tY == nothing ? vec(y) : vcat(p.tY, vec(y))
 	point
 end
 
