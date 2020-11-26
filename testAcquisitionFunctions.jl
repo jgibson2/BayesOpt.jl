@@ -62,21 +62,21 @@ acLocalBatchEI = LocalPenalizedBatch(acEI)
 
 batchSize = 5
 
-dataMI = OptimizationData(ZeroMean(), Matern52(), 1.0, acMIBatchEI, [0.0], [30.0], tx, ty) 
-pointsMI = ProposeNextPoint(dataMI; restarts=5, batchSize=batchSize)
+dataMI = BatchOptimizationData(ZeroMean(), Matern52(), 1.0, acMIBatchEI, [0.0], [30.0], tx, ty) 
+pointsMI = ProposeNextBatch(dataMI; restarts=5, batchSize=batchSize)
 
-dataCV = OptimizationData(ZeroMean(), Matern52(), 1.0, acMIBatchEI, [0.0], [30.0], tx, ty) 
-pointsCV = ProposeNextPoint(dataCV; restarts=5, batchSize=batchSize)
+dataCV = BatchOptimizationData(ZeroMean(), Matern52(), 1.0, acMIBatchEI, [0.0], [30.0], tx, ty) 
+pointsCV = ProposeNextBatch(dataCV; restarts=5, batchSize=batchSize)
 
-dataL = OptimizationData(ZeroMean(), Matern52(), 1.0, acLocalBatchEI, [0.0], [30.0], tx, ty) 
-pointsL = ProposeNextPoint(dataL; restarts=5, batchSize=batchSize)
+dataL = BatchOptimizationData(ZeroMean(), Matern52(), 1.0, acLocalBatchEI, [0.0], [30.0], tx, ty) 
+pointsL = ProposeNextBatch(dataL; restarts=5, batchSize=batchSize)
 
-samplerATS = ATSSampler(ZeroMean(), Matern52(), 1.0; bounds_length_scale=(0.5, 2.5))
-sampledATS_xs, sampledATS_ys = SampleOptima(samplerATS, gp2, x; num_samples=20);
+samplerATS = ATSSampleBatch(ZeroMean(), Matern52(), 1.0; bounds_length_scale=(0.5, 2.5))
+sampledATS_xs, sampledATS_ys = AcquireBatch(samplerATS, gp, [0.0], [30.0], tx, ty; batchSize=20, return_ys=true);
 scatter!(p2, vec(sampledATS_xs), sampledATS_ys, label="ATS Sampled Optima", markershape = :x, markersize = 3, color = :green);
 
-samplerTS = ThompsonSampler()
-sampledTS_xs, sampledTS_ys = SampleOptima(samplerTS, gp2, x; num_samples=20);
+samplerTS = ThompsonSampleBatch()
+sampledTS_xs, sampledTS_ys = AcquireBatch(samplerTS, gp, [0.0], [30.0], tx, ty; batchSize=20, return_ys=true);
 scatter!(p2, vec(sampledTS_xs), sampledTS_ys, label="TS Sampled Optima", markershape = :+, markersize = 3, color = :red);
 
 acfns = [
@@ -90,7 +90,7 @@ acfns = [
 
 i = size(acfns, 1)
 for (lab,fn) in acfns
-	local ac = AcquireScore(fn, gp2, x, tx, ty)
+	local ac = AcquisitionScore(fn, gp2, x, tx, ty)
 	ac = vec((1 / (size(acfns, 1) + 1)) * (ac .- minimum(ac)) ./ (maximum(ac) - minimum(ac)))
 	hline!(p3, [(i / size(acfns, 1))], linestyle = :dot, linewidth=0.25, color=:black, label="");
 	plot!(p3, vec(x), ac .+ (i  / size(acfns, 1)), ribbon=(ac, fill(0, size(ac))), label=lab, grid=false, yticks=false);

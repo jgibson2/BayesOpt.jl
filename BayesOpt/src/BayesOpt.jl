@@ -20,22 +20,26 @@ export
 	GaussianProcess,
 	ConditionGP,
 	LogMarginalLikelihood,
-	AcquireScore,
+	AcquisitionScore,
 	ExpectedImprovement,
 	KnowledgeGradientCP,
 	ProbabilityOfImprovement,
 	UpperConfidenceBound,
 	MutualInformationMES,
 	MutualInformationOPES,
+	AcquirePoint,
 	MutualInformationPenalizedBatch,
 	CovariancePenalizedBatch,
 	LocalPenalizedBatch,
-	ThompsonSampler,
-	ATSSampler,
-	SampleOptima,
+	ThompsonSampleBatch,
+	ATSSampleBatch,
+	AcquireBatch,
 	OptimizationData,
+	BatchOptimizationData,
 	ProposeNextPoint,
-	ProposeAndEvaluateNextPoint!;
+	ProposeAndEvaluateNextPoint!,
+	ProposeNextBatch,
+	ProposeAndEvaluateNextBatch!;
 
 include("GP.jl")
 include("AcquisitionFunctions.jl")
@@ -57,10 +61,7 @@ mutable struct OptimizationData
 		ProbabilityOfImprovement,
 		UpperConfidenceBound,
 		MutualInformationMES,
-		MutualInformationOPES,
-		MutualInformationPenalizedBatch,
-		CovariancePenalizedBatch,
-		LocalPenalizedBatch}
+		MutualInformationOPES}
 	lbounds::AbstractVector{Float32}
 	ubounds::AbstractVector{Float32}
 	tX::Union{AbstractArray{Float32, 2}, Nothing}
@@ -70,41 +71,66 @@ mutable struct OptimizationData
 	OptimizationData(m, k, s, ac, lbounds, ubounds, tX, tY) = new(m, k, s, ac, lbounds, ubounds, tX, tY)
 end
 
-function ProposeNextPoint(p::OptimizationData; restarts=20, batchSize=1)
-	dist = Product(Uniform.(p.lbounds, p.ubounds))
-	point = rand(dist, batchSize)
-	if p.tX != nothing && p.tY != nothing
-		gp = ConditionGP(GaussianProcess(p.mean, p.kernel, p.sigma), p.tX, p.tY)
-		best_f = Inf;
-		f = x -> -1 * sum(AcquireScore(p.acquisitionFunction, gp, reshape(x, (size(x, 1), batchSize)), p.tX, p.tY))
-		for iter in 1:restarts
-			initial_x = rand(dist, batchSize)
-			result = optimize(
-					  f,
-					  hcat([p.lbounds for _ in 1:batchSize]...),
-					  hcat([p.ubounds for _ in 1:batchSize]...),
-					  initial_x,
-					  Fminbox(LBFGS()),
-					  Optim.Options(show_trace=false,
-							 f_tol=1e-4,
-							 x_tol=1e-4,
-							 g_tol=1e-4,
-							 iterations=50))
-			if best_f > Optim.minimum(result)
-				point = Optim.minimizer(result)
-				best_f = Optim.minimum(result)
-			end
-		end
-	end
-	reshape(point, (size(point, 1), batchSize))
+mutable struct BatchOptimizationData
+	mean::Union{ZeroMean,ConstantMean,FunctionMean}
+	kernel::Union{Kernel,
+		SquaredExponential,
+		RationalQuadratic,
+		Matern,
+		Matern12,
+		Matern32,
+		Matern52,
+		SpectralMixture}
+	sigma::Float32
+	batchAcquisitionFunction::Union{
+		ThompsonSampleBatch,
+		ATSSampleBatch,
+		MutualInformationPenalizedBatch,
+		CovariancePenalizedBatch,
+		LocalPenalizedBatch}
+	lbounds::AbstractVector{Float32}
+	ubounds::AbstractVector{Float32}
+	tX::Union{AbstractArray{Float32, 2}, Nothing}
+	tY::Union{AbstractVector{Float32}, Nothing}
+	BatchOptimizationData(gp, ac, lbounds, ubounds) = new(gp.mean, gp.kernel, gp.sigma, ac, lbounds, ubounds, nothing, nothing)
+	BatchOptimizationData(m, k, s, ac, lbounds, ubounds) = new(m, k, s, ac, lbounds, ubounds, nothing, nothing)
+	BatchOptimizationData(m, k, s, ac, lbounds, ubounds, tX, tY) = new(m, k, s, ac, lbounds, ubounds, tX, tY)
 end
 
-function ProposeAndEvaluateNextPoint!(p::OptimizationData, f; restarts=20, batchSize=1)
-	point = ProposeNextPoint(p; restarts=restarts, batchSize=batchSize)
+function ProposeNextPoint(data::OptimizationData; restarts=20)
+	dist = Product(Uniform.(data.lbounds, data.ubounds))
+	point = rand(dist, 1)
+	if data.tX != nothing && data.tY != nothing
+		gp = ConditionGP(GaussianProcess(data.mean, data.kernel, data.sigma), data.tX, data.tY)
+		point = AcquirePoint(data.acquisitionFunction, gp, data.lbounds, data.ubounds, data.tX, data.tY; restarts=restarts)
+	end
+	reshape(point, (size(point, 1), 1))
+end
+
+function ProposeAndEvaluateNextPoint!(data::OptimizationData, f; restarts=20)
+	point = ProposeNextPoint(data; restarts=restarts)
 	y = f(point)
-	p.tX = p.tX == nothing ? point : hcat(p.tX, point)
-	p.tY = p.tY == nothing ? vec(y) : vcat(p.tY, vec(y))
+	data.tX = data.tX == nothing ? point : hcat(data.tX, point)
+	data.tY = data.tY == nothing ? vec(y) : vcat(data.tY, vec(y))
 	point
+end
+
+function ProposeNextBatch(data::BatchOptimizationData; restarts=20, batchSize=5)
+	dist = Product(Uniform.(data.lbounds, data.ubounds))
+	batch = rand(dist, batchSize)
+	if data.tX != nothing && data.tY != nothing
+		gp = ConditionGP(GaussianProcess(data.mean, data.kernel, data.sigma), data.tX, data.tY)
+		batch = AcquireBatch(data.batchAcquisitionFunction, gp, data.lbounds, data.ubounds, data.tX, data.tY; restarts=restarts, batchSize=batchSize)
+	end
+	reshape(batch, (size(batch, 1), batchSize))
+end
+
+function ProposeAndEvaluateNextBatch!(data::BatchOptimizationData, f; restarts=20, batchSize=5)
+	batch = ProposeNextBatch(data; restarts=restarts, batchSize=batchSize)
+	y = f(batch)
+	data.tX = data.tX == nothing ? batch : hcat(data.tX, batch)
+	data.tY = data.tY == nothing ? vec(y) : vcat(data.tY, vec(y))
+	batch
 end
 
 end # module

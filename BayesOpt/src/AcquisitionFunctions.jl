@@ -52,7 +52,7 @@ struct MutualInformationOPES
 	end
 end
 
-function AcquireScore(fn::ExpectedImprovement, gp, X, tX, tY)
+function AcquisitionScore(fn::ExpectedImprovement, gp, X, tX, tY)
 	bestY, bestYIdx = findmax(tY)
 	bestX = reshape(tX[:, bestYIdx], (size(tX)[1], 1))
 	bestPhi = Mean(gp, bestX)
@@ -64,7 +64,7 @@ function AcquireScore(fn::ExpectedImprovement, gp, X, tX, tY)
 end
 
 
-function AcquireScore(fn::KnowledgeGradientCP, gp, X, tX, tY)
+function AcquisitionScore(fn::KnowledgeGradientCP, gp, X, tX, tY)
 	bestY, bestYIdx = findmax(tY)
 	bestX = reshape(tX[:, bestYIdx], (size(tX)[1], 1))
 	bestPhi = Mean(gp, bestX)
@@ -78,12 +78,12 @@ function AcquireScore(fn::KnowledgeGradientCP, gp, X, tX, tY)
 end
 
 
-function AcquireScore(fn::UpperConfidenceBound, gp, X, tX, tY)
+function AcquisitionScore(fn::UpperConfidenceBound, gp, X, tX, tY)
 	Mean(gp, X) + (sqrt(fn.beta) .* Std(gp, X))
 end
 
 
-function AcquireScore(fn::ProbabilityOfImprovement, gp, X, tX, tY)
+function AcquisitionScore(fn::ProbabilityOfImprovement, gp, X, tX, tY)
 	bestY, bestYIdx = findmax(tY)
 	bestX = reshape(tX[:, bestYIdx], (size(tX)[1], 1))
 	r = maximum(tY) - minimum(tY)
@@ -93,7 +93,7 @@ function AcquireScore(fn::ProbabilityOfImprovement, gp, X, tX, tY)
 end
 
 
-function AcquireScore(fn::MutualInformationMES, gp, X, tX, tY)
+function AcquisitionScore(fn::MutualInformationMES, gp, X, tX, tY)
 	mus_X = Mean(gp, X)
 	sigmas_X = Std(gp, X)
 	n = Normal()
@@ -103,7 +103,7 @@ function AcquireScore(fn::MutualInformationMES, gp, X, tX, tY)
 end
 
 
-function AcquireScore(fn::MutualInformationOPES, gp, X, tX, tY)
+function AcquisitionScore(fn::MutualInformationOPES, gp, X, tX, tY)
 	mus_X = Mean(gp, X)
 	sigmas_X = Std(gp, X)
 	n = Normal()
@@ -117,3 +117,28 @@ function AcquireScore(fn::MutualInformationOPES, gp, X, tX, tY)
 end
 
 
+function AcquirePoint(fn, gp, lbounds, ubounds, tX, tY; restarts=20)
+	dist = Product(Uniform.(lbounds, ubounds))
+	point = rand(dist, 1)
+	best_f = Inf;
+	f = x -> -1 * sum(AcquisitionScore(fn, gp, reshape(x, (size(x, 1), 1)), tX, tY))
+	for iter in 1:restarts
+		initial_x = rand(dist, 1)
+		result = optimize(
+				  f,
+				  lbounds,
+				  ubounds,
+				  initial_x,
+				  Fminbox(LBFGS()),
+				  Optim.Options(show_trace=false,
+						 f_tol=1e-4,
+						 x_tol=1e-4,
+						 g_tol=1e-4,
+						 iterations=50))
+		if best_f > Optim.minimum(result)
+			point = Optim.minimizer(result)
+			best_f = Optim.minimum(result)
+		end
+	end
+	reshape(point, (size(point, 1), 1))
+end
