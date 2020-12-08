@@ -40,7 +40,7 @@ end
 
 # Evaluates one score for  _all_ X in batch
 function BatchAcquisitionScore(fn::MutualInformationPenalizedBatch, gp, X, tX, tY)
-	α = vec(mapslices(x -> AcquisitionScore(fn.acquisitionFunction, gp, reshape(x, (size(x, 1), 1)), tX, tY), X; dims=1))
+	α = vec(mapslices(x -> sum(AcquisitionScore(fn.acquisitionFunction, gp, reshape(x, (size(x, 1), 1)), tX, tY)), X; dims=1))
 	g = (x1, x2) -> 0.5 * (log(2 * pi * ℯ * K(gp.kernel, x1, x1)) + log(2 * pi * ℯ * K(gp.kernel, x2, x2)) - log((2 * pi * ℯ)^2 * ((K(gp.kernel, x1, x1) * K(gp.kernel, x2, x2)) - (K(gp.kernel, x1, x2) * K(gp.kernel, x2, x1)))))
 	MI = [g(x1, x2) for x1=eachcol(X), x2=eachcol(X) ]
 	MI[diagind(MI)] .= 0 # disregard diagonal, which will be Inf
@@ -116,6 +116,7 @@ function AcquireBatch(fn::ATSSampleBatch, gp, lbounds, ubounds, tX, tY; restarts
 	end
 end
 
+# Generalized batch acquisition routine
 function AcquireBatch(fn, gp, lbounds, ubounds, tX, tY; restarts=20, batchSize=5)
 	dist = Product(Uniform.(lbounds, ubounds))
 	point = rand(dist, batchSize)

@@ -2,7 +2,7 @@ using LinearAlgebra, SpecialFunctions;
 include("Kernels.jl");
 
 function Std(gp, X)
-	sqrt.([ K(gp.kernel,x,x) for x=eachcol(X) ])
+	sqrt.([ max(K(gp.kernel,x,x), 0) for x=eachcol(X) ])
 end
 
 function Cov(gp, X, X2)

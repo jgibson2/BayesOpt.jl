@@ -17,7 +17,8 @@ end
 
 struct ProbabilityOfImprovement
 	tau
-	ProbabilityOfImprovement(;tau=0.01) = new(tau)
+	eps
+	ProbabilityOfImprovement(;tau=0.01, eps=1e-5) = new(tau, eps)
 end
 
 struct MutualInformationMES
@@ -27,11 +28,19 @@ struct MutualInformationMES
 		points = hcat([next!(seq) for i = 1:samples]...)
 		mus = Mean(gp, points)
 		mu_avg = sum(mus) / size(mus, 1)
+		mu_max, mu_max_idx = findmax(mus)
 		sigmas = Std(gp, points)
 		quants = LinRange(0.01, 0.99, quantiles)
 		n = Normal();
 		fstar_cdf = (z, u) -> sum(log.(clamp.(cdf(n, (z .- mus) ./ sigmas), 1e-5, 1e5))) - log(u);
-		fstar_samples = [ find_zero(z -> fstar_cdf(z, u), mu_avg, Order1()) for u=quants ]
+		function f(u)
+			try
+				find_zero(z -> fstar_cdf(z, u), mu_avg, Order1())
+			catch e
+				invlogcdf(Normal(mu_max, sigmas[mu_max_idx]), log(u))
+			end
+		end
+		fstar_samples = [ f(u) for u=quants ]
 		new(fstar_samples)
 	end
 end
@@ -43,16 +52,28 @@ struct MutualInformationOPES
 		points = hcat([next!(seq) for i = 1:samples]...)
 		mus = Mean(gp, points)
 		mu_avg = sum(mus) / size(mus, 1)
+		mu_max = maximum(mus)
 		sigmas = Std(gp, points)
 		quants = LinRange(0.01, 0.99, quantiles)
 		n = Normal();
 		fstar_cdf = (z, u) -> sum(log.(clamp.(cdf(n, (z .- mus) ./ sigmas), 1e-5, 1e5))) - log(u);
-		fstar_samples = [ find_zero(z -> fstar_cdf(z, u), mu_avg, Order1()) for u=quants ]
+		function f(u)
+			try
+				find_zero(z -> fstar_cdf(z, u), mu_avg, Order1())
+			catch e
+				invlogcdf(Normal(mu_max, sigmas[mu_max_idx]), log(u))
+			end
+		end
+		fstar_samples = [ f(u) for u=quants ]
 		new(fstar_samples)
 	end
 end
 
 function AcquisitionScore(fn::ExpectedImprovement, gp, X, tX, tY)
+	if tY == nothing
+		tY = Mean(gp, X)
+		tX = X
+	end
 	bestY, bestYIdx = findmax(tY)
 	bestX = reshape(tX[:, bestYIdx], (size(tX)[1], 1))
 	bestPhi = Mean(gp, bestX)
@@ -65,6 +86,10 @@ end
 
 
 function AcquisitionScore(fn::KnowledgeGradientCP, gp, X, tX, tY)
+	if tY == nothing
+		tY = Mean(gp, X)
+		tX = X
+	end
 	bestY, bestYIdx = findmax(tY)
 	bestX = reshape(tX[:, bestYIdx], (size(tX)[1], 1))
 	bestPhi = Mean(gp, bestX)
@@ -79,14 +104,14 @@ end
 
 
 function AcquisitionScore(fn::UpperConfidenceBound, gp, X, tX, tY)
-	Mean(gp, X) + (sqrt(fn.beta) .* Std(gp, X))
+	Mean(gp, X) + (fn.beta .* Std(gp, X))
 end
 
 
 function AcquisitionScore(fn::ProbabilityOfImprovement, gp, X, tX, tY)
 	bestY, bestYIdx = findmax(tY)
 	bestX = reshape(tX[:, bestYIdx], (size(tX)[1], 1))
-	r = maximum(tY) - minimum(tY)
+	r = max(maximum(tY) - minimum(tY), fn.eps)
 	mu = Mean(gp, bestX)
 	tau = (fn.tau * r) .+ mu
 	cdf(Normal(), (Mean(gp, X) .- tau) ./ Std(gp, X))
@@ -99,7 +124,8 @@ function AcquisitionScore(fn::MutualInformationMES, gp, X, tX, tY)
 	n = Normal()
 	Z = hcat([(fn.fstar_samples .- u) ./ s for (u,s)=zip(mus_X, sigmas_X)]...)
 	mes = Z .* pdf(n, Z) ./ cdf(n, Z) - log.(cdf(n, Z)).^2
-	(0.5 / size(fn.fstar_samples, 1)) .* mapslices(sum, mes; dims=1)
+	res = (0.5 / size(fn.fstar_samples, 1)) .* mapslices(sum, mes; dims=1)
+	vec(res)
 end
 
 

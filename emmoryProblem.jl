@@ -35,7 +35,6 @@ acfns = [
 	 ("PoI (t=3.0)", acPI30),
 ];
 
-#=
 for (lab,fn) in acfns
 	data = OptimizationData(gp.mean, gp.kernel, gp.sigma, fn, [0.0], [1.0]) 
 	println("Method: $(lab)")
@@ -70,7 +69,6 @@ anim = @animate for i in 1:size(schedule, 1)
 	plot!(p2, vec(x), vec(f(x)), label=L"f(x)", linecolor=:red);
 end
 gif(anim, "emmory_PoI.gif", fps=2)
-=#
 
 
 data = OptimizationData(gp.mean, gp.kernel, gp.sigma, UpperConfidenceBound(), [0.0], [1.0]) 

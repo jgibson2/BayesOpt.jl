@@ -96,9 +96,9 @@ for (lab,fn) in acfns
 	plot!(p3, vec(x), ac .+ (i  / size(acfns, 1)), ribbon=(ac, fill(0, size(ac))), label=lab, grid=false, yticks=false);
 	global i -= 1
 end
-vline!(p3, vec(pointsMI), linestyle = :dash, linewidth=0.75, color=:blue, label="MI EI Batch Locations");
-vline!(p3, vec(pointsCV), linestyle = :dash, linewidth=0.75, color=:red, label="CV EI Batch Locations");
-vline!(p3, vec(pointsL), linestyle = :dash, linewidth=0.75, color=:green, label="Local EI Batch Locations");
+# vline!(p3, vec(pointsMI), linestyle = :dash, linewidth=0.75, color=:blue, label="MI EI Batch Locations");
+# vline!(p3, vec(pointsCV), linestyle = :dash, linewidth=0.75, color=:red, label="CV EI Batch Locations");
+# vline!(p3, vec(pointsL), linestyle = :dash, linewidth=0.75, color=:green, label="Local EI Batch Locations");
 
 l = @layout [a b]
 display(plot(p2, p3, layout=l, size=(1600,900)))
